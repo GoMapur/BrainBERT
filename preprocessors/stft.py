@@ -49,5 +49,6 @@ class STFTPreprocessor(nn.Module):
         self.cfg = cfg
 
     def forward(self, wav):
-        _,_,linear = self.get_stft(wav, 2048, show_fs=self.cfg.freq_channel_cutoff, nperseg=self.cfg.nperseg, noverlap=self.cfg.noverlap, normalizing=self.cfg.normalizing, return_onesided=True) #TODO hardcode sampling rate
+        _,_,linear = self.get_stft(wav, 1000, show_fs=self.cfg.freq_channel_cutoff, nperseg=self.cfg.nperseg, noverlap=self.cfg.noverlap, normalizing=self.cfg.normalizing, return_onesided=True) #TODO hardcode sampling rate
+        # _,_,linear = self.get_stft(wav, 1000, show_fs=self.cfg.freq_channel_cutoff, nperseg=self.cfg.nperseg, noverlap=self.cfg.noverlap, normalizing=self.cfg.normalizing) #TODO hardcode sampling rate
         return linear

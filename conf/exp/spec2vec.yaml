@@ -6,11 +6,11 @@ runner:
     shuffle: False
     multi_gpu: True
     device: cuda
-    total_steps: 400000
+    total_steps: 200
     #world_size: 4
-    num_workers: 16
-    log_step: 1000
-    checkpoint_step: 1000
+    num_workers: 8s
+    log_step: 20
+    checkpoint_step: 20
     grad_clip: 1.0
     #start_from_ckpt: /storage/czw/self_supervised_seeg/outputs/2022-05-13/02-28-15/checkpoint_last.pth
     scheduler:

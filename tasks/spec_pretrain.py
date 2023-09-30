@@ -6,6 +6,7 @@ from tasks import register_task
 from tasks.base_task import BaseTask
 from tasks.batch_utils import spec_collator
 from util.tensorboard_utils import plot_tensorboard_spectrogram, plot_tensorboard_line
+from scipy import signal
 
 @register_task(name="spec_pretrain")
 class SpecPretrain(BaseTask):
@@ -39,13 +40,16 @@ class SpecPretrain(BaseTask):
         return data.DataLoader(dataset, batch_size=batch_size, collate_fn=spec_collator, **kwargs)
 
     def output_logs(self, train_logging_outs, val_logging_outs, writer, global_step):
-        for k in train_logging_outs["images"]:
-            image = train_logging_outs["images"][k]
-            if k == "wav":
-                tb_image = plot_tensorboard_line(image, title="wav")
-            else:
-                tb_image = plot_tensorboard_spectrogram(image)
-            if writer is not None:
+        if writer is not None:
+            for k in train_logging_outs["images"]:
+                image = train_logging_outs["images"][k]
+                if k == "wav":
+                    tb_image = plot_tensorboard_line(image, title="input wav")
+                elif k == "pred_spectrogram":
+                    tb_image = plot_tensorboard_spectrogram(image, title="pred spectrogram")
+                else:
+                    tb_image = plot_tensorboard_spectrogram(image)
+                
                 writer.add_image(k, tb_image, global_step)
 
         if writer is not None:

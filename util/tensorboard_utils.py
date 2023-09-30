@@ -19,7 +19,7 @@ def plot_tensorboard_line(wav, title=None):
     plt.close()
     return data
 
-def plot_tensorboard_spectrogram(spec):
+def plot_tensorboard_spectrogram(spec, title=None):
     #needs to be [batch, height, width, channels]
     #spec = spec.transpose(0,1).unsqueeze(0)
     #return spec
@@ -32,6 +32,8 @@ def plot_tensorboard_spectrogram(spec):
     plt.colorbar(im, ax=ax)
     plt.xlabel("Frames")
     plt.ylabel("Channels")
+    if title:
+        plt.title(title)
     plt.tight_layout()
 
     fig.canvas.draw()
