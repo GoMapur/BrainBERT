@@ -74,20 +74,38 @@ class MaskedTFDataset(data.Dataset):
         file_name = self.files[idx]
         file_path = os.path.join(self.root_dir, file_name)
         data = np.load(file_path)
+        
+        # print("data shape: {}".format(data.shape))
 
         data = data.astype('float32')
         #rand_len = random.randrange(1000, len(data), 1)
         rand_len = -1
-        wav = data[:rand_len]
+        wav = np.squeeze(data)[:rand_len]
+        
+        # print("wav shape: {}".format(wav.shape))
 
         if self.cached_features:
             data = self.get_cached_features(file_name)
         else:
-            data = self.extracter(wav)
-
-        masked_data, mask_label = mask_inputs(data, self.task_cfg) 
+            f, t, data, mn, stf, un_normalized_data, erased_Zxx = self.extracter(wav)
+        
+        # print(self.cached_features)
+        # print("data shape: {}".format(data.shape))
+        if self.cfg["use_mask"]:
+            masked_data, mask_label = mask_inputs(data, self.task_cfg) 
+        else:
+            masked_data = data
+            mask_label = torch.zeros_like(data)
         return {"masked_input": masked_data,
                 "length": data.shape[0],
                 "mask_label": mask_label,
                 "wav": wav,
-                "target": data}
+                "target": data,
+                "freq": f,
+                "time": t,
+                "mean": mn,
+                "std": stf,
+                "un_normalized_target": un_normalized_data,
+                "erased_Zxx": erased_Zxx,
+                "fn": file_name
+                }

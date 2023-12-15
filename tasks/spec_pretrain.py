@@ -45,12 +45,19 @@ class SpecPretrain(BaseTask):
                 image = train_logging_outs["images"][k]
                 if k == "wav":
                     tb_image = plot_tensorboard_line(image, title="input wav")
+                    writer.add_image(k, tb_image, global_step)
                 elif k == "pred_spectrogram":
                     tb_image = plot_tensorboard_spectrogram(image, title="pred spectrogram")
+                    writer.add_image(k, tb_image, global_step)
+                    
+                    _, xrec = signal.istft(image, fs=1000)
+                    tb_image = plot_tensorboard_line(xrec, title="pred wav")
+                    writer.add_image(k, tb_image, global_step)
                 else:
+                    print(f"image {k} shape", image.shape)
                     tb_image = plot_tensorboard_spectrogram(image)
+                    writer.add_image(k, tb_image, global_step)
                 
-                writer.add_image(k, tb_image, global_step)
 
         if writer is not None:
             loss_metrics = ["l1_loss", "content_aware_loss", "content_l1"]

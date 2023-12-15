@@ -1,3 +1,6 @@
 /pretrained_weights/
 /outputs/
 *__pycache__
+/notebooks/vis/
+/notebooks/vis_shorter/
+results/

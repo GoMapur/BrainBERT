@@ -2,3 +2,4 @@ name: masked_tf_dataset
 val_split: 0.1
 data: /mnt/AI_Magic/projects/iEEG_data/ucla/EEG_Data_90min/
 preprocessor: stft
+use_mask: True

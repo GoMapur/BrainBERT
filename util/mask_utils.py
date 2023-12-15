@@ -9,6 +9,8 @@ def get_mask_fill_value(data):
 def create_masked_intervals(data, consecutive_min, consecutive_max, mask_p, axis="time"):
     consecutive_min = consecutive_min
     consecutive_max = consecutive_max
+    
+    # print("consecutive_min: {}, consecutive_max: {}, data.shape: {}".format(consecutive_min, consecutive_max, data.shape))
     assert consecutive_min <= consecutive_max
     assert consecutive_max < data.shape[0]
 
