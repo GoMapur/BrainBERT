@@ -43,8 +43,9 @@ class Runner():
         if 'start_from_ckpt' in cfg:
             self.load_from_ckpt()
 
-    def load_from_ckpt(self):
-        ckpt_path = self.cfg.start_from_ckpt
+    def load_from_ckpt(self, ckpt_path=None):
+        if ckpt_path is None:
+            ckpt_path = self.cfg.start_from_ckpt
         init_state = torch.load(ckpt_path)
         self.task.load_model_weights(self.model, init_state['model'], self.cfg.multi_gpu)
         self.optim.load_state_dict(init_state["optim"])
@@ -58,17 +59,28 @@ class Runner():
         elif args.optim == 'AdamW':
             optim = torch.optim.AdamW(self.model.parameters(), lr=args.lr)
         elif args.optim == 'AdamW_finetune':
-            linear_out_params = self.model.linear_out.parameters() if not self.cfg.multi_gpu else self.model.module.linear_out.parameters()
+            linear_out_params = self.model.prediction_head.parameters() if not self.cfg.multi_gpu else self.model.module.prediction_head.parameters()
             ignored_params = list(map(id, linear_out_params))
             base_params = filter(lambda p: id(p) not in ignored_params,
                                  self.model.parameters())
 
             optim = torch.optim.AdamW([
-                        {'params': base_params},
+                        {'params': base_params, 'lr': args.lr*0.05},
                         {'params': linear_out_params, 'lr': args.lr}
-                    ], lr=args.lr*0.1)
+                        ])
+                    # ], lr=args.lr*0.1)
         elif args.optim == 'LAMB':
             optim = torch_optim.Lamb(self.model.parameters(), lr=args.lr)
+        elif args.optim == 'AdaBelief':
+            linear_out_params = self.model.prediction_head.parameters() if not self.cfg.multi_gpu else self.model.module.prediction_head.parameters()
+            ignored_params = list(map(id, linear_out_params))
+            base_params = filter(lambda p: id(p) not in ignored_params,
+                                 self.model.parameters())
+
+            optim = torch_optim.AdaBelief([
+                {'params': base_params, 'lr': args.lr*0.05},
+                {'params': linear_out_params, 'lr': args.lr}
+            ])
         else:
             print("no valid optim name")
         return optim
@@ -93,8 +105,9 @@ class Runner():
         self.task.output_logs(train_logging_outs, val_logging_outs, self.logger, global_step)
 
     def get_valid_outs(self):
-        valid_loader = self.get_batch_iterator(self.task.valid_set, self.cfg.valid_batch_size, shuffle=self.cfg.shuffle, num_workers=self.cfg.num_workers)
-        valid_logging_outs = self.task.get_valid_outs(self.model, valid_loader, self.criterion, self.device) 
+        # valid_loader = self.get_batch_iterator(self.task.valid_set, self.cfg.valid_batch_size, shuffle=self.cfg.shuffle, num_workers=self.cfg.num_workers)
+        train_loader = self.get_batch_iterator(self.task.train_set, self.cfg.train_batch_size, shuffle=self.cfg.shuffle, num_workers=self.cfg.num_workers, persistent_workers=self.cfg.num_workers>0)
+        valid_logging_outs = self.task.get_valid_outs(self.model, train_loader, self.criterion, self.device) 
         return valid_logging_outs
 
     def save_checkpoint_last(self, states, best_val=False):
@@ -121,12 +134,16 @@ class Runner():
             self.save_checkpoint_last(all_states, best_val)
         
     def run_epoch(self, train_loader, total_loss, best_state):
+        best_model, best_val = best_state
         epoch_loss = []
-        for batch in train_loader:
+        for batch_id, batch in enumerate(train_loader):
             if self.progress.n >= self.progress.total:
                 break
+            # print(f"Training batch {batch_id}/{len(train_loader)}")
             self.model.train()
-            logging_out = self.task.train_step(batch, self.model, self.criterion, self.optim, self.scheduler, self.device, self.cfg.grad_clip)
+            if batch_id == len(train_loader)-1:
+                print("during training ------------------------------------------------")
+            logging_out = self.task.train_step(batch, self.model, self.criterion, self.optim, self.scheduler, self.device, self.cfg.grad_clip, debug=(batch_id == len(train_loader)-1), debug_name="training_debug.npz")
             total_loss.append(logging_out["loss"])
             epoch_loss.append(logging_out["loss"])
             log_step = self.progress.n % self.cfg.log_step == 0 or self.progress.n == self.progress.total - 1
@@ -135,20 +152,22 @@ class Runner():
             if self.cfg.checkpoint_step > -1:
                 ckpt_step = self.progress.n % self.cfg.checkpoint_step == 0 or self.progress.n == self.progress.total - 1
 
-            best_model, best_val = best_state
             valid_logging_outs = {}
+
             if ckpt_step or log_step:
                 self.model.eval()
                 valid_logging_outs = self.get_valid_outs()
+                    
             if log_step:
                 logging_out["loss"] = np.mean(total_loss)
                 self.output_logs(logging_out, valid_logging_outs)
                 total_loss = []
+                
             if ckpt_step:
                 if valid_logging_outs["loss"] < best_val["loss"]:
-                    self.save_checkpoints(best_val=True)
                     best_val = valid_logging_outs
-                    best_model = copy.deepcopy(self.model)
+                    # best_model = copy.deepcopy(self.model)
+                    self.save_checkpoints(best_val=True)
                 else:
                     self.save_checkpoints()
             self.progress.update(1)
@@ -171,13 +190,21 @@ class Runner():
                 total_loss, best_state = self.run_epoch(train_loader, total_loss, best_state)
                 best_model, best_val = best_state
             self.progress.close()
-        return best_model
+        return best_state
                 
-    def test(self, best_model_weights):
+    def test(self):
+        cwd = os.getcwd()
+        save_path = os.path.join(cwd, 'checkpoint_best.pth')
+        self.load_from_ckpt(save_path)
+
         test_loader = self.get_batch_iterator(self.task.test_set, self.cfg.valid_batch_size, shuffle=self.cfg.shuffle, num_workers=self.cfg.num_workers, persistent_workers=self.cfg.num_workers>0)
 
         test_outs = self.task.get_valid_outs(self.model, test_loader, self.criterion, self.device)
         log.info(f"test_results {test_outs}")
+
+        train_loader = self.get_batch_iterator(self.task.train_set, self.cfg.train_batch_size, shuffle=self.cfg.shuffle, num_workers=self.cfg.num_workers, persistent_workers=self.cfg.num_workers>0)
+        train_outs = self.task.get_valid_outs(self.model, train_loader, self.criterion, self.device)
+        log.info(f"train_results {train_outs}")
         return test_outs
 
     def get_batch_iterator(self, dataset, batch_size, **kwargs):

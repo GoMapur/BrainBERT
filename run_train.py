@@ -20,8 +20,10 @@ def main(cfg: DictConfig) -> None:
     model = task.build_model(cfg.model)
     criterion = task.build_criterion(cfg.criterion)
     runner = Runner(cfg.exp.runner, task, model, criterion)
-    best_model = runner.train()
-    runner.test(best_model)
+    best_model, best_val = runner.train()
+    # runner.test(best_model)
+    runner.save_checkpoints(best_val=False)
+    runner.save_checkpoints(best_val=True)
 
 if __name__ == "__main__":
     main()

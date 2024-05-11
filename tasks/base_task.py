@@ -22,8 +22,8 @@ class BaseTask():
         self.valid_set = val_set
         self.test_set = test_set
 
-    def train_step(self, batch, model, criterion, optimizer, scheduler, device, grad_clip=None):
-        loss, logging_out = criterion(model, batch, device)
+    def train_step(self, batch, model, criterion, optimizer, scheduler, device, grad_clip=None, debug=False, debug_name=None):
+        loss, logging_out = criterion(model, batch, device, debug=debug, debug_name=debug_name)
         loss.backward(loss)
         if grad_clip:
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)

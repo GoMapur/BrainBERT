@@ -1,0 +1,6 @@
+name: spindle_finetuning
+data: /mnt/Data_Storage/dataset/brain/spindle_ieeg/brainbert_format
+manifest_name: train_manifest_0.tsv
+preprocessor: stft
+val_split: 0.1
+test_split: 0.1

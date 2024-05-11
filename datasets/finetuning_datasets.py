@@ -449,3 +449,4 @@ class TimestampFinetuning(BaseFinetuning):
                 "wav": wav,
                 "label": self.label2idx(self.timestamps[idx].hour)
                }
+

@@ -46,3 +46,5 @@ Example parameters:
 ```
 /path/to/data = /storage/user123/self_supervised_seeg/pretrain_data/manifests
 ```
+
+python run_train.py +exp=finetune ++exp.runner.device=cuda:2 ++exp.runner.multi_gpu=False ++exp.runner.num_workers=20 +data=finetuning_spindle +model=finetune_model +task=finetune_task.yaml ++exp.task.name=finetune_task ++exp.criterion.name=finetune_criterion ++exp.runner.total_steps=3700 ++model.frozen_upstream=False +preprocessor=stft +criterion=finetune_criterion

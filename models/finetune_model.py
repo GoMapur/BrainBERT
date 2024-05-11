@@ -11,21 +11,38 @@ class FinetuneModel(BaseModel):
 
     def forward(self, inputs, pad_mask):
         if self.frozen_upstream:
-            self.upstream.eval()
+            self.model['upstream'].eval()
             with torch.no_grad():
-                outputs = self.upstream(inputs, pad_mask, intermediate_rep=True)
+                outputs = self.model['upstream'](inputs, pad_mask, intermediate_rep=True)
         else:
-            outputs = self.upstream(inputs, pad_mask, intermediate_rep=True)
-        middle = int(outputs.shape[1]/2)
-        outputs = outputs[:,middle-5:middle+5].mean(axis=1)
-        out = self.linear_out(outputs)
-        return out
+            outputs = self.model['upstream'](inputs, pad_mask, intermediate_rep=True)
 
+        middle = int(outputs.shape[1] / 2)
+        outputs = outputs[:, middle - 5:middle + 5].mean(axis=1)
+        out = self.model['prediction_head'](outputs)
+        return out
+    
     def build_model(self, cfg, upstream_model):
         self.cfg = cfg
         self.upstream = upstream_model
         self.upstream_cfg = self.upstream.cfg
         hidden_dim = self.upstream_cfg.hidden_dim
-        self.linear_out = nn.Linear(in_features=hidden_dim, out_features=1) #TODO hardcode out_features
+        self.prediction_head = nn.Sequential(
+            # nn.Linear(in_features=hidden_dim, out_features=hidden_dim // 2), # Second layer
+            # nn.
+            nn.Linear(in_features=hidden_dim, out_features=cfg.num_classes) # Output layer
+        )
+
+        for m in self.prediction_head:
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.zeros_(m.bias)
+        
         self.frozen_upstream = cfg.frozen_upstream
+
+        # make upstream and prediction_head both savable, register them
+        self.model = nn.ModuleDict({
+            'upstream': self.upstream,
+            'prediction_head': self.prediction_head
+        })
 

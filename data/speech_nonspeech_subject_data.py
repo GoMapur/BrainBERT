@@ -75,3 +75,4 @@ class SentenceOnsetSubjectData():
         labels_df = pd.concat(words) #NOTE the index will not be unique, but the location will
         #TODO: pretty sure we are missing the get_subj_data method here
         return labels_df, neural_data, trials
+
