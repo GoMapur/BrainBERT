@@ -18,6 +18,7 @@ class FinetuneModel(BaseModel):
             outputs = self.model['upstream'](inputs, pad_mask, intermediate_rep=True)
 
         middle = int(outputs.shape[1] / 2)
+        # print(f"outputs shape: {outputs.shape}")
         outputs = outputs[:, middle - 5:middle + 5].mean(axis=1)
         out = self.model['prediction_head'](outputs)
         return out
@@ -30,7 +31,7 @@ class FinetuneModel(BaseModel):
         self.prediction_head = nn.Sequential(
             # nn.Linear(in_features=hidden_dim, out_features=hidden_dim // 2), # Second layer
             # nn.
-            nn.Linear(in_features=hidden_dim, out_features=cfg.num_classes) # Output layer
+            nn.Linear(in_features=hidden_dim, out_features=cfg.num_classes)
         )
 
         for m in self.prediction_head:

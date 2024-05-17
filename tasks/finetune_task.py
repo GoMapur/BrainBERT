@@ -42,9 +42,9 @@ class FinetuneTask(BaseTask):
         predicts, labels = [], []
         with torch.no_grad():
             for i, batch in enumerate(valid_loader):
-                if i == len(valid_loader)-1:
+                if False:
                     print("during inference ------------------------------------------------")
-                _, valid_outs = criterion(model, batch, device, return_predicts=True, debug=(i == len(valid_loader)-1), debug_name="valid_debug.npz")
+                _, valid_outs = criterion(model, batch, device, return_predicts=True, debug=(i==(len(valid_loader)-1)), debug_name="valid_debug.npz")
 
                 predicts.append(valid_outs["predicts"])
                 labels.append(batch["labels"])
@@ -52,13 +52,13 @@ class FinetuneTask(BaseTask):
         labels = np.array([x for y in labels for x in y])
         predicts = [np.array([p]) if len(p.shape)==0 else p for p in predicts]
         predicts = np.concatenate(predicts)
-        # print(f"predicts shape: {predicts.shape}")
-        # print(f"predicts sample: {predicts[:10]}")
-        # print(f"labels sample: {labels[:10]}")
+        print(f"predicts shape: {predicts.shape}")
+        print(f"predicts sample: {predicts[:10]}")
+        print(f"labels sample: {labels[:10]}")
         predicts = np.argmax(predicts, axis=1)
-        # print(f"predicts shape: {predicts.shape}")
-        # print(f"predicts sample: {predicts[:10]}")
-        # print('------------------')
+        print(f"predicts shape: {predicts.shape}")
+        print(f"predicts sample: {predicts[:10]}")
+        print('------------------')
         roc_auc = roc_auc_score(labels, predicts)
         all_outs["loss"] /= len(valid_loader)
         all_outs["roc_auc"] = roc_auc

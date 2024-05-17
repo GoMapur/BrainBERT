@@ -98,7 +98,8 @@ class SpindleFinetuning(data.Dataset):
         f, t, data, mn, stf, un_normalized_data, erased_Zxx = self.extracter(wav)
 
         # only take 0-40Hz
-        data[9:, :] = 0.0
+        # print(data.shape)
+        # data[9:, :] = 0.0
 
         return {
             "input": data,

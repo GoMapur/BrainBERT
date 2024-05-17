@@ -36,7 +36,11 @@ class Runner():
         assert not(cfg.device=='cpu' and cfg.multi_gpu)
         self.model.to(self.device)
         self.optim = self._init_optim(self.cfg)
-        self.scheduler = build_scheduler(self.cfg.scheduler, self.optim)
+
+        if isinstance(self.optim, list):
+            self.scheduler = [build_scheduler(self.cfg.scheduler, opt) for opt in self.optim]
+        else:
+            self.scheduler = build_scheduler(self.cfg.scheduler, self.optim)
         total_steps = self.cfg.total_steps
         self.progress = tqdm(total=total_steps, dynamic_ncols=True, desc="overall")
 
@@ -72,22 +76,24 @@ class Runner():
         elif args.optim == 'LAMB':
             optim = torch_optim.Lamb(self.model.parameters(), lr=args.lr)
         elif args.optim == 'AdaBelief':
-            linear_out_params = self.model.prediction_head.parameters() if not self.cfg.multi_gpu else self.model.module.prediction_head.parameters()
-            ignored_params = list(map(id, linear_out_params))
-            base_params = filter(lambda p: id(p) not in ignored_params,
-                                 self.model.parameters())
+            linear_out_params = self.model.model['prediction_head'].parameters()
+            base_params = self.model.model['upstream'].parameters()
 
-            optim = torch_optim.AdaBelief([
-                {'params': base_params, 'lr': args.lr*0.05},
-                {'params': linear_out_params, 'lr': args.lr}
-            ])
+            optim1 = torch_optim.AdaBelief(
+                base_params, args.lr*0.05
+            )
+            optim2 = torch_optim.AdaBelief(
+                linear_out_params, args.lr
+            )
+
+            optim = [optim1, optim2]
         else:
             print("no valid optim name")
         return optim
 
     def output_logs(self, train_logging_outs, val_logging_outs):
         global_step = self.progress.n
-        train_logging_outs['lr'] = self.scheduler.get_lr()
+        train_logging_outs['lr'] = [sch.get_lr() for sch in self.scheduler]
         standard_metrics = ["lr", "loss", "grad_norm"]
         all_standard_metrics = {}
         def add_prefix(prefix, outs):
@@ -123,8 +129,8 @@ class Runner():
     def save_checkpoints(self, best_val=False):
         all_states = {}
         all_states = self.task.save_model_weights(self.model, all_states, self.cfg.multi_gpu)
-        all_states['optim'] = self.optim.state_dict()
-        all_states['scheduler'] = self.scheduler.get_state_dict()
+        all_states['optim'] = [optim.state_dict() for optim in self.optim]
+        all_states['scheduler'] = [sch.get_state_dict() for sch in self.scheduler]
         if self.cfg.multi_gpu:
             all_states['model_cfg'] = self.model.module.cfg
         else:
@@ -137,26 +143,30 @@ class Runner():
         best_model, best_val = best_state
         epoch_loss = []
         for batch_id, batch in enumerate(train_loader):
-            if self.progress.n >= self.progress.total:
-                break
-            # print(f"Training batch {batch_id}/{len(train_loader)}")
-            self.model.train()
-            if batch_id == len(train_loader)-1:
-                print("during training ------------------------------------------------")
-            logging_out = self.task.train_step(batch, self.model, self.criterion, self.optim, self.scheduler, self.device, self.cfg.grad_clip, debug=(batch_id == len(train_loader)-1), debug_name="training_debug.npz")
-            total_loss.append(logging_out["loss"])
-            epoch_loss.append(logging_out["loss"])
-            log_step = self.progress.n % self.cfg.log_step == 0 or self.progress.n == self.progress.total - 1
+            log_step = (self.progress.n % self.cfg.log_step == 0 or self.progress.n == self.progress.total - 1) and self.progress.n > 0
 
             ckpt_step = False
             if self.cfg.checkpoint_step > -1:
-                ckpt_step = self.progress.n % self.cfg.checkpoint_step == 0 or self.progress.n == self.progress.total - 1
+                ckpt_step = (self.progress.n % self.cfg.checkpoint_step == 0 or self.progress.n == self.progress.total - 1) and self.progress.n > 0
+
+            if self.progress.n >= self.progress.total:
+                break
+            print(f"Training batch {batch_id}/{len(train_loader)}")
+            self.model.train()
+            if False:
+                print("during training ------------------------------------------------")
+            logging_out = self.task.train_step(batch, self.model, self.criterion, self.optim, self.scheduler, self.device, self.cfg.grad_clip, debug=(batch_id == (len(train_loader) - 1)), debug_name="training_debug.npz", no_training=batch_id == (len(train_loader) - 2))
+            total_loss.append(logging_out["loss"])
+            epoch_loss.append(logging_out["loss"])
 
             valid_logging_outs = {}
 
             if ckpt_step or log_step:
                 self.model.eval()
                 valid_logging_outs = self.get_valid_outs()
+
+                # exit once first valid logging is done
+                exit()
                     
             if log_step:
                 logging_out["loss"] = np.mean(total_loss)

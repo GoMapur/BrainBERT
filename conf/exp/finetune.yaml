@@ -1,16 +1,16 @@
 runner:
-    lr: 2e-3
+    lr: 1e-3
     optim: AdaBelief
     train_batch_size: 64
     valid_batch_size: 128
-    shuffle: True
+    shuffle: False
     multi_gpu: False
     device: cuda:2
-    total_steps: 3000
+    total_steps: 2000
     #world_size: 4
     num_workers: 32
-    log_step: 100
-    checkpoint_step: 100
+    log_step: 1096
+    checkpoint_step: 1096
     grad_clip: 10.0
     output_tb: False
     #start_from_ckpt: /storage/czw/self_supervised_seeg/outputs/2022-05-13/02-28-15/checkpoint_last.pth

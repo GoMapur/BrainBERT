@@ -22,14 +22,29 @@ class BaseTask():
         self.valid_set = val_set
         self.test_set = test_set
 
-    def train_step(self, batch, model, criterion, optimizer, scheduler, device, grad_clip=None, debug=False, debug_name=None):
+    def train_step(self, batch, model, criterion, optimizer, scheduler, device, grad_clip=None, debug=False, debug_name=None, no_training=False):
         loss, logging_out = criterion(model, batch, device, debug=debug, debug_name=debug_name)
+        
+        if debug or no_training:
+            if isinstance(optimizer, list):
+                for opt in optimizer:
+                    opt.zero_grad()
+            return logging_out
+        
         loss.backward(loss)
         if grad_clip:
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step(loss)
+        # if there is a list of optimizers, then step them all
+        if isinstance(optimizer, list):
+            for opt in optimizer:
+                opt.step()
+                opt.zero_grad()
+            for sch in scheduler:
+                sch.step(loss)
+        else:
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step(loss)
 
         logging_out["grad_norm"] = grad_norm.item()
         return logging_out

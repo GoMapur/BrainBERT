@@ -32,7 +32,8 @@ class TransformerEncoderInput(nn.Module):
         self.in_proj = nn.Linear(in_features=cfg.input_dim, out_features=cfg.hidden_dim)
         self.positional_encoding = PositionalEncoding(self.cfg.hidden_dim)
         self.layer_norm = nn.LayerNorm(cfg.hidden_dim)
-        self.dropout = nn.Dropout(p=dropout)
+        # self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(p=0.0)
 
     def forward(self, input_specs):
         input_specs = self.in_proj(input_specs)
